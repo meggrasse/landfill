@@ -1,12 +1,12 @@
 % this code calculates the profit for the different permutations of a 
 % basal liner system, including the drainage and capping system.
 
-linerKind = struct('MINERAL_LINER', 1, 'SINGLE_COMPOSITE', 2, 'DOUBLE_LINER', 3);
+linerKind = struct('MINERAL_LINER', 1, 'SINGLE_COMPOSITE', 2, 'DOUBLE_LINER_COMPOSITE', 3, 'GEOMEMBRANE', 4, 'DOUBLE_GEOMEMBRANE', 5);
 mineralLinerPermeability = struct('LOW_PERMEABILITY_CLAY', 10^-9, 'SEMI_LOW_PERMEABILITY_CLAY', 10^-8, 'GCL', 10^-10);
 
-LinerKind = [linerKind.MINERAL_LINER linerKind.MINERAL_LINER, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.DOUBLE_LINER, linerKind.DOUBLE_LINER, linerKind.DOUBLE_LINER, linerKind.DOUBLE_LINER, linerKind.DOUBLE_LINER, linerKind.DOUBLE_LINER].';
-CQA = [false false false true false true false true false true false true false true].';
-MineralLinerPermeability = [mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL].';
+LinerKind = [linerKind.MINERAL_LINER linerKind.MINERAL_LINER, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.SINGLE_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE, linerKind.DOUBLE_LINER_COMPOSITE linerKind.GEOMEMBRANE linerKind.GEOMEMBRANE linerKind.DOUBLE_GEOMEMBRANE linerKind.DOUBLE_GEOMEMBRANE].';
+CQA = [false false false true false true false true false true false true false true false true false true].';
+MineralLinerPermeability = [mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL 0 0 0 0].';
 
 AREA_M2 = 10000;
 LANDFILL_LIFETIME_YRS = 60;
@@ -23,7 +23,7 @@ hydraulic_gradient = 0;
 HydraulicGradient = zeros(indexes,1)
 for ii = 1:indexes
     hydraulic_gradient = 0;
-    if LinerKind(ii) == linerKind.DOUBLE_LINER
+    if LinerKind(ii) == linerKind.DOUBLE_LINER_COMPOSITE | LinerKind(ii) == linerKind.DOUBLE_GEOMEMBRANE
         % includes intermediary drainage layer
         thickness = 0.6;
     else
@@ -65,9 +65,13 @@ for ii = 1:indexes
         case linerKind.SINGLE_COMPOSITE
             % leakage through a single composite liner (Bonaparte et al., 1989)
             leakage_rate = hole_count*contact_factor*HEAD^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
-        case linerKind.DOUBLE_LINER
+        case linerKind.DOUBLE_LINER_COMPOSITE
             % leakage through a single composite liner (Bonaparte et al., 1989)
             leakage_rate = hole_count*contact_factor*HEAD_BOTTOM_LINER^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
+        case linerKind.GEOMEMBRANE
+            leakage_rate = 0.6*hole_area*sqrt(2*9.81*HEAD);
+        case linerKind.DOUBLE_GEOMEMBRANE
+            leakage_rate = 0.6*hole_area*sqrt(2*9.81*HEAD_BOTTOM_LINER);
         otherwise
             warning('Unexpected linerKind.')
     end
@@ -98,9 +102,13 @@ for ii = 1:indexes
     switch LinerKind(ii)
         case linerKind.SINGLE_COMPOSITE
             current_material_cost = current_material_cost + costs.PROTECTION_GEOTEXTILE + costs.LLDPE;
-        case linerKind.DOUBLE_LINER
+        case linerKind.DOUBLE_LINER_COMPOSITE
             % tyre layer height of 10cm
             current_material_cost = current_material_cost + costs.LLDPE + costs.TYRES*0.1 + costs.PROTECTION_GEOTEXTILE + costs.LLDPE;
+        case linerKind.GEOMEMBRANE
+            current_material_cost = current_material_cost + costs.LLDPE;
+        case linerKind.DOUBLE_GEOMEMBRANE
+            current_material_cost = current_material_cost + costs.LLDPE + costs.TYRES*0.1 + costs.LLDPE;
     end
 
     switch MineralLinerPermeability(ii)
@@ -126,7 +134,11 @@ capping_cost = capping_cost*AREA_M2;
 CappingCost = ones(indexes, 1);
 CappingCost = CappingCost.*capping_cost;
 
-TotalCost = LiningMaterialCost+LifetimeLeakageCost+CoverSoilCost+drainage_cost+capping_cost;
+cover_soil_cost = 49000;
+CoverSoilCost = ones(indexes, 1);
+CoverSoilCost = CoverSoilCost.*cover_soil_cost;
+
+TotalCost = LiningMaterialCost+LifetimeLeakageCost+CoverSoilCost+DrainageCost+CappingCost;
 
 cost = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LifetimeLeakageCost, LiningMaterialCost, CoverSoilCost, DrainageCost, CappingCost, TotalCost)
 
@@ -135,21 +147,17 @@ cost = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LifetimeLea
 % calculate income
 % c.f. https://imperiallondon.sharepoint.com/:x:/r/sites/Landfilldesigngroup4-CI/_layouts/15/Doc.aspx?sourcedoc=%7B12524882-6197-42F4-A1A9-1AC2A37C1969%7D&file=Landfill%20dimensions.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1
 available_volume = 0;
-cover_soil_cost = 0;
 AvailableVolume = zeros(indexes,1);
 CoverSoilCost = zeros(indexes, 1);
 for ii = 1:indexes
     available_volume = 0;
-    if LinerKind(ii) == linerKind.DOUBLE_LINER
+    if LinerKind(ii) == linerKind.DOUBLE_LINER_COMPOSITE
         % liner thickness is 0.6
         available_volume = 243552;
-        cover_soil_cost = 50000;
     else
         available_volume = 244544;
-        cover_soil_cost = 50000;
     end
     AvailableVolume(ii) = available_volume;
-    CoverSoilCost(ii) = cover_soil_cost;
 end
 
 Income = AvailableVolume*7.5;
@@ -163,7 +171,11 @@ figure(1);
 color = [0 0 0 0];
 marker = "";
 legend_labels = string(zeros(indexes, 1));
+legend_label_index = 0;
 for ii = 1:indexes
+    if Permeability(ii) > 10^-9
+        continue
+    end
     legend_label = "";
     switch LinerKind(ii) 
         case linerKind.MINERAL_LINER
@@ -172,9 +184,15 @@ for ii = 1:indexes
         case linerKind.SINGLE_COMPOSITE
             color = [0.4660 0.6740 0.1880];
             legend_label = "SC: ";
-        case linerKind.DOUBLE_LINER
+        case linerKind.DOUBLE_LINER_COMPOSITE
             color = [0 0.4470 0.7410];
-            legend_label = "DL: ";
+            legend_label = "DLC: ";
+        case linerKind.GEOMEMBRANE
+            color = [0.4940 0.1840 0.5560];
+            legend_label = "GM:";
+        case linerKind.DOUBLE_GEOMEMBRANE
+            color = [0.6350 0.0780 0.1840];
+            legend_label = "DGM:";
     end
     switch MineralLinerPermeability(ii)
         case mineralLinerPermeability.LOW_PERMEABILITY_CLAY
@@ -186,15 +204,18 @@ for ii = 1:indexes
         case  mineralLinerPermeability.GCL
             marker = "diamond";
             legend_label = legend_label + "GCL";
+        otherwise
+            marker = "hexagram";
     end
 
     if CQA(ii)
-        scatter(LeakageRateDay(ii), Profit(ii), 200, color, "filled", marker, LineWidth=2);
+        scatter(LeakageRateDay(ii), Profit(ii), 400, color, "filled", marker, LineWidth=5);
         legend_label = legend_label + " - CQA";
     else
-        scatter(LeakageRateDay(ii), Profit(ii), 200, color, marker, LineWidth=2);
+        scatter(LeakageRateDay(ii), Profit(ii), 400, color, marker, LineWidth=5);
     end
-    legend_labels(ii) = legend_label;
+    legend_label_index = legend_label_index + 1;
+    legend_labels(legend_label_index) = legend_label;
     hold on;
 end
 title("Basal Liner Leakage vs. Profit");
@@ -207,6 +228,6 @@ ax.XAxisLocation = "origin";
 ax.YAxisLocation = "origin";
 ax.YAxis.Exponent = 0;
 ax.XAxis.Exponent = 0;
-ax.FontSize = 20;
+ax.FontSize = 30;
 
 hold off;
