@@ -119,6 +119,21 @@ Profit = income-TotalCost;
 
 table(LinerKind, CQA, MineralLinerPermeability, LeakageRate, LifetimeLeakage, Permeability, MaterialCost, LifetimeLeakageCost, TotalCost, Profit)
 
+disp("Capping Cost:");
+disp(capping_cost);
+
+disp("Bottom Drainage Cost:");
+disp(drainage_cost);
+
+disp("Cover Soil Cost:");
+disp(total_cover_soil_cost);
+
+disp("Income:");
+disp(income);
+
+disp("Approx. Income w/o Cover Soil:")
+disp(7.50*(30-2)/.8 *area_m2);
+
 % hold on
 % Q_temp = [Q_good_ml; Q_gcl; Q; Q_bottom_worst_case]
 % % need to fix calclulations
