@@ -8,12 +8,32 @@ LinerKind = [linerKind.MINERAL_LINER linerKind.MINERAL_LINER, linerKind.SINGLE_C
 CQA = [false false false true false true false true false true false true false true].';
 MineralLinerPermeability = [mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mineralLinerPermeability.GCL, mineralLinerPermeability.GCL].';
 
-% Part 3: Calculate Leakage
+AREA_M2 = 10000;
+LANDFILL_LIFETIME_YRS = 60;
+SECONDS_PER_YEAR = 365*24*60*60;
+HEAD = 1;
 
-seconds_per_year = 365*24*60*60;
-head = 1;
-head_bottom_liner = 0.1; % worst case
-thickness = 1;
+%% Part 3: Calculate leakage
+
+% calculate k (for LD compliance)
+thickness = 0;
+hydraulic_gradient = 0;
+Permeability = zeros(indexes,1);
+for ii = 1:indexes
+    hydraulic_gradient = 0;
+    if LinerKind(ii) == linerKind.DOUBLE_LINER
+        % includes intermediary drainage layer
+        thickness = 1.1;
+    else
+        thickness = 1;
+    end
+
+    hydraulic_gradient = (thickness + HEAD)/thickness;
+    Permeability(ii) = LeakageRate(ii)/(hydraulic_gradient*AREA_M2);
+end
+
+% calculate q
+HEAD_BOTTOM_LINER = 0.1; % worst case head of 0.1m on bottom liner (Giroud & Bonaparte, 1989)
 leakage_rate = 0;
 hole_count = 0;
 contact_factor = 0;
@@ -27,7 +47,7 @@ for ii = 1:indexes
         contact_factor = 0.21;
         hole_area = 1*10^-5;
     elseif MineralLinerPermeability(ii) == mineralLinerPermeability.GCL
-        % GCL can assume good contact (G&P)
+        % GCL can assume good contact (Giroud, 1997)
         hole_count = 20;
         contact_factor = 0.21;
         hole_area = 5*10^-5;
@@ -39,29 +59,32 @@ for ii = 1:indexes
 
     switch LinerKind(ii)
         case linerKind.MINERAL_LINER
-            hydraulic_gradient = (thickness+head)/thickness;
+            hydraulic_gradient = (thickness+HEAD)/thickness;
             % Darcy's Law
-            leakage_rate = MineralLinerPermeability(ii)*hydraulic_gradient*area_m2;
+            leakage_rate = MineralLinerPermeability(ii)*hydraulic_gradient*AREA_M2;
         case linerKind.SINGLE_COMPOSITE
             % leakage through a single composite liner (Bonaparte et al., 1989)
-            leakage_rate = hole_count*contact_factor*head^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
+            leakage_rate = hole_count*contact_factor*HEAD^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
         case linerKind.DOUBLE_LINER
             % leakage through a single composite liner (Bonaparte et al., 1989)
-            % assume worst case head of 0.1m on bottom liner
-            leakage_rate = hole_count*contact_factor*head_bottom_liner^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
+            leakage_rate = hole_count*contact_factor*HEAD_BOTTOM_LINER^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
         otherwise
             warning('Unexpected linerKind.')
     end
     LeakageRate(ii,1) = leakage_rate;
 end
 
-LifetimeLeakage = LeakageRate.*seconds_per_year*landfill_lifetime_yrs;
-LifetimeLeakageCost = LifetimeLeakage.*300;
+LifetimeLeakage = LeakageRate.*SECONDS_PER_YEAR*LANDFILL_LIFETIME_YRS;
+
+leakage = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LeakageRate, LifetimeLeakage)
+
+%% Part 4: Calculate cost
 
 % TODO: add seperator geotextile in for intermediary drainage layer in basal system?
 costs = struct('LLDPE', 8, 'TYRES', 10, 'PROTECTION_GEOTEXTILE', 4, 'LOW_PERMEABILITY_CLAY', 100, 'SEMI_LOW_PERMEABILITY_CLAY', 20, 'GCL', 15, 'CQA', 50, 'SEPARATOR_GEOTEXTILE', 2, 'DRAINAGE_GRAVEL', 50, 'RESTORATION_SOILS', 1);
 
-MaterialCost = zeros(indexes,1);
+% calculate basal lining cost
+LiningMaterialCost = zeros(indexes,1);
 current_material_cost = 0; % per m^2
 for ii = 1:indexes
     current_material_cost = 0;
@@ -85,56 +108,65 @@ for ii = 1:indexes
         case mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY
             current_material_cost = current_material_cost + costs.SEMI_LOW_PERMEABILITY_CLAY;
     end
-    current_material_cost = current_material_cost*area_m2;
-    MaterialCost(ii) = current_material_cost;
+    current_material_cost = current_material_cost*AREA_M2;
+    LiningMaterialCost(ii) = current_material_cost;
 end
 
-thickness = 0;
-head = 1;
-hydraulic_gradient = 0;
-Permeability = zeros(indexes,1);
+% calculate cover soil cost
+% c.f. https://imperiallondon.sharepoint.com/:x:/r/sites/Landfilldesigngroup4-CI/_layouts/15/Doc.aspx?sourcedoc=%7B12524882-6197-42F4-A1A9-1AC2A37C1969%7D&file=Landfill%20dimensions.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1
+cover_soil_cost = 0;
+CoverSoilCost = zeros(indexes, 1);
 for ii = 1:indexes
-    hydraulic_gradient = 0;
+    available_volume = 0;
     if LinerKind(ii) == linerKind.DOUBLE_LINER
-        % includes intermediary drainage layer
-        thickness = 1.1;
+        cover_soil_cost = 47563;
     else
-        thickness = 1;
+        cover_soil_cost = 47770;
     end
-
-    hydraulic_gradient = (thickness + head)/thickness;
-    Permeability(ii) = LeakageRate(ii)/(hydraulic_gradient*area_m2);
+    CoverSoilCost(ii) = cover_soil_cost;
 end
 
-total_cover_soil_cost = 47770;
+LifetimeLeakageCost = LifetimeLeakage.*300;
+
 drainage_cost = 170925;
+DrainageCost = ones(indexes, 1);
+DrainageCost = DrainageCost.*drainage_cost;
+
 capping_cost = costs.RESTORATION_SOILS*1 + costs.RESTORATION_SOILS*1 + costs.SEPARATOR_GEOTEXTILE + costs.DRAINAGE_GRAVEL*0.5 + costs.PROTECTION_GEOTEXTILE + costs.LLDPE + costs.PROTECTION_GEOTEXTILE + costs.DRAINAGE_GRAVEL*0.3 + costs.SEPARATOR_GEOTEXTILE;
-capping_cost = capping_cost*area_m2;
+capping_cost = capping_cost*AREA_M2;
+CappingCost = ones(indexes, 1);
+CappingCost = CappingCost.*capping_cost;
 
-available_volume = 229663;
-income = available_volume*7.5;
+TotalCost = LiningMaterialCost+LifetimeLeakageCost+CoverSoilCost+drainage_cost+capping_cost;
 
-TotalCost = MaterialCost+LifetimeLeakageCost+total_cover_soil_cost+drainage_cost+capping_cost;
-Profit = income-TotalCost;
+cost = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LifetimeLeakageCost, LiningMaterialCost, CoverSoilCost, DrainageCost, CappingCost, TotalCost)
 
-table(LinerKind, CQA, MineralLinerPermeability, LeakageRate, LifetimeLeakage, Permeability, MaterialCost, LifetimeLeakageCost, TotalCost, Profit)
+%% Part 5: Calculate profit
 
-disp("Capping Cost:");
-disp(capping_cost);
+% calculate income
+% c.f. https://imperiallondon.sharepoint.com/:x:/r/sites/Landfilldesigngroup4-CI/_layouts/15/Doc.aspx?sourcedoc=%7B12524882-6197-42F4-A1A9-1AC2A37C1969%7D&file=Landfill%20dimensions.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1
+available_volume = 0;
+cover_soil_cost = 0;
+AvailableVolume = zeros(indexes,1);
+CoverSoilCost = zeros(indexes, 1);
+for ii = 1:indexes
+    available_volume = 0;
+    if LinerKind(ii) == linerKind.DOUBLE_LINER
+        % liner thickness is 1.1
+        available_volume = 228671;
+        cover_soil_cost = 47563;
+    else
+        available_volume = 229663;
+        cover_soil_cost = 47770;
+    end
+    AvailableVolume(ii) = available_volume;
+    CoverSoilCost(ii) = cover_soil_cost;
+end
 
-disp("Bottom Drainage Cost:");
-disp(drainage_cost);
+Income = AvailableVolume*7.5;
+Profit = Income-TotalCost;
 
-disp("Cover Soil Cost:");
-disp(total_cover_soil_cost);
-
-disp("Income:");
-disp(income);
-
-disp("Approx. Income w/o Cover Soil:")
-disp(7.50*(30-2)/.8 *area_m2);
-
-% TODO: correct thicknes for double liner
+profit = table(LinerKind, CQA, MineralLinerPermeability, TotalCost, AvailableVolume, Income, Profit)
 
 % hold on
 % Q_temp = [Q_good_ml; Q_gcl; Q; Q_bottom_worst_case]
