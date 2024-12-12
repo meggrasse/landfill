@@ -25,16 +25,16 @@ for ii = 1:indexes
     if CQA(ii)
         hole_count = 5;
         contact_factor = 0.21;
-        hole_area = 0.01;
+        hole_area = 1*10^-5;
     elseif MineralLinerPermeability(ii) == mineralLinerPermeability.GCL
         % GCL can assume good contact (G&P)
         hole_count = 20;
         contact_factor = 0.21;
-        hole_area = 0.05;
+        hole_area = 5*10^-5;
     else
         hole_count = 20;
         contact_factor = 1.15;
-        hole_area = 0.05;
+        hole_area = 5*10^-5;
     end
 
     switch LinerKind(ii)
@@ -47,6 +47,7 @@ for ii = 1:indexes
             leakage_rate = hole_count*contact_factor*head^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
         case linerKind.DOUBLE_LINER
             % leakage through a single composite liner (Bonaparte et al., 1989)
+            % assume worst case head of 0.1m on bottom liner
             leakage_rate = hole_count*contact_factor*head_bottom_liner^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
         otherwise
             warning('Unexpected linerKind.')
@@ -55,6 +56,7 @@ for ii = 1:indexes
 end
 
 LifetimeLeakage = LeakageRate.*seconds_per_year*landfill_lifetime_yrs;
+LifetimeLeakageCost = LifetimeLeakage.*300;
 
 % TODO: add seperator geotextile in for intermediary drainage layer in basal system?
 costs = struct('LLDPE', 8, 'TYRES', 10, 'PROTECTION_GEOTEXTILE', 4, 'LOW_PERMEABILITY_CLAY', 100, 'SEMI_LOW_PERMEABILITY_CLAY', 20, 'GCL', 15, 'CQA', 50, 'SEPARATOR_GEOTEXTILE', 2, 'DRAINAGE_GRAVEL', 50, 'RESTORATION_SOILS', 1);
@@ -87,8 +89,6 @@ for ii = 1:indexes
     MaterialCost(ii) = current_material_cost;
 end
 
-LifetimeLeakageCost = LifetimeLeakage.*300;
-
 thickness = 0;
 head = 1;
 hydraulic_gradient = 0;
@@ -106,12 +106,12 @@ for ii = 1:indexes
     Permeability(ii) = LeakageRate(ii)/(hydraulic_gradient*area_m2);
 end
 
-total_cover_soil_cost = 134523;
+total_cover_soil_cost = 47770;
 drainage_cost = 170925;
 capping_cost = costs.RESTORATION_SOILS*1 + costs.RESTORATION_SOILS*1 + costs.SEPARATOR_GEOTEXTILE + costs.DRAINAGE_GRAVEL*0.5 + costs.PROTECTION_GEOTEXTILE + costs.LLDPE + costs.PROTECTION_GEOTEXTILE + costs.DRAINAGE_GRAVEL*0.3 + costs.SEPARATOR_GEOTEXTILE;
 capping_cost = capping_cost*area_m2;
 
-available_volume = 143721.2;
+available_volume = 229663;
 income = available_volume*7.5;
 
 TotalCost = MaterialCost+LifetimeLeakageCost+total_cover_soil_cost+drainage_cost+capping_cost;
@@ -133,6 +133,8 @@ disp(income);
 
 disp("Approx. Income w/o Cover Soil:")
 disp(7.50*(30-2)/.8 *area_m2);
+
+% TODO: correct thicknes for double liner
 
 % hold on
 % Q_temp = [Q_good_ml; Q_gcl; Q; Q_bottom_worst_case]
