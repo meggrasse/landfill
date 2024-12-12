@@ -25,9 +25,9 @@ for ii = 1:indexes
     hydraulic_gradient = 0;
     if LinerKind(ii) == linerKind.DOUBLE_LINER
         % includes intermediary drainage layer
-        thickness = 1.1;
+        thickness = 0.6;
     else
-        thickness = 1;
+        thickness = 0.5;
     end
 
     hydraulic_gradient = (thickness + HEAD)/thickness;
@@ -115,20 +115,6 @@ for ii = 1:indexes
     LiningMaterialCost(ii) = current_material_cost;
 end
 
-% calculate cover soil cost
-% c.f. https://imperiallondon.sharepoint.com/:x:/r/sites/Landfilldesigngroup4-CI/_layouts/15/Doc.aspx?sourcedoc=%7B12524882-6197-42F4-A1A9-1AC2A37C1969%7D&file=Landfill%20dimensions.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1
-cover_soil_cost = 0;
-CoverSoilCost = zeros(indexes, 1);
-for ii = 1:indexes
-    available_volume = 0;
-    if LinerKind(ii) == linerKind.DOUBLE_LINER
-        cover_soil_cost = 47563;
-    else
-        cover_soil_cost = 47770;
-    end
-    CoverSoilCost(ii) = cover_soil_cost;
-end
-
 LifetimeLeakageCost = LifetimeLeakage.*300;
 
 drainage_cost = 170925;
@@ -155,12 +141,12 @@ CoverSoilCost = zeros(indexes, 1);
 for ii = 1:indexes
     available_volume = 0;
     if LinerKind(ii) == linerKind.DOUBLE_LINER
-        % liner thickness is 1.1
-        available_volume = 228671;
-        cover_soil_cost = 47563;
+        % liner thickness is 0.6
+        available_volume = 243552;
+        cover_soil_cost = 50000;
     else
-        available_volume = 229663;
-        cover_soil_cost = 47770;
+        available_volume = 244544;
+        cover_soil_cost = 50000;
     end
     AvailableVolume(ii) = available_volume;
     CoverSoilCost(ii) = cover_soil_cost;
@@ -172,8 +158,6 @@ Profit = Income-TotalCost;
 profit = table(LinerKind, CQA, MineralLinerPermeability, TotalCost, AvailableVolume, Income, Profit)
 
 permeability_table = table(LinerKind, CQA, MineralLinerPermeability, Permeability)
-
-% TODO: add seperator geotextile in for intermediary drainage layer in basal system?
 
 figure(1);
 color = [0 0 0 0];
@@ -226,4 +210,3 @@ ax.XAxis.Exponent = 0;
 ax.FontSize = 20;
 
 hold off;
-
