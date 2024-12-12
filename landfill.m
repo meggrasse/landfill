@@ -10,7 +10,8 @@ MineralLinerPermeability = [mineralLinerPermeability.LOW_PERMEABILITY_CLAY, mine
 
 AREA_M2 = 10000;
 LANDFILL_LIFETIME_YRS = 60;
-SECONDS_PER_YEAR = 365*24*60*60;
+SECONDS_PER_DAY = 60*60*24;
+SECONDS_PER_YEAR = 365*SECONDS_PER_DAY;
 HEAD = 1;
 
 %% Part 3: Calculate leakage
@@ -74,13 +75,13 @@ for ii = 1:indexes
     LeakageRate(ii,1) = leakage_rate;
 end
 
+LeakageRateDay = LeakageRate.*SECONDS_PER_DAY;
 LifetimeLeakage = LeakageRate.*SECONDS_PER_YEAR*LANDFILL_LIFETIME_YRS;
 
-leakage = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LeakageRate, LifetimeLeakage)
+leakage = table(LinerKind, CQA, MineralLinerPermeability, Permeability, LeakageRate, LeakageRateDay, LifetimeLeakage)
 
 %% Part 4: Calculate cost
 
-% TODO: add seperator geotextile in for intermediary drainage layer in basal system?
 costs = struct('LLDPE', 8, 'TYRES', 10, 'PROTECTION_GEOTEXTILE', 4, 'LOW_PERMEABILITY_CLAY', 100, 'SEMI_LOW_PERMEABILITY_CLAY', 20, 'GCL', 15, 'CQA', 50, 'SEPARATOR_GEOTEXTILE', 2, 'DRAINAGE_GRAVEL', 50, 'RESTORATION_SOILS', 1);
 
 % calculate basal lining cost
@@ -168,20 +169,57 @@ Profit = Income-TotalCost;
 
 profit = table(LinerKind, CQA, MineralLinerPermeability, TotalCost, AvailableVolume, Income, Profit)
 
-% hold on
-% Q_temp = [Q_good_ml; Q_gcl; Q; Q_bottom_worst_case]
-% % need to fix calclulations
-% P_temp = [P_good_ml; P_gcl; P; P_worst_case]
-% for ii = 1:length(Q_temp)
-% %     colormap = colormap winter;
-% %     if ii > 2
-% %         colormap = colormap("summer");
-% %     end
-% %     if ii > 8
-% %          colormap = colormap("default");
-% %     end
-% %     color = colormap[ii];
-%     scatter(Q_temp(ii),P_temp(ii))
-% end
-% legend("LP", "GCL", "GM+HP(no CQA)","GM+HP(CQA)","GM+LP(no CQA)","GM+LP(CQA)", "GM+GCL(no CQA)", "GM+GCL(CQA)", "GM+GM+HP(CQA)","GM+GM+LP(no CQA)","GM+GM+LP(CQA)", "GM+GM+GCL(no CQA)", "GM+GM+GCL(CQA)");
+% TODO: add seperator geotextile in for intermediary drainage layer in basal system?
+
+figure(1);
+color = [0 0 0 0];
+marker = "";
+legend_labels = string(zeros(indexes, 1));
+for ii = 1:indexes
+    legend_label = "";
+    switch LinerKind(ii) 
+        case linerKind.MINERAL_LINER
+            color = [0.8500 0.3250 0.0980];
+            legend_label = "ML: ";
+        case linerKind.SINGLE_COMPOSITE
+            color = [0.4660 0.6740 0.1880];
+            legend_label = "SC: ";
+        case linerKind.DOUBLE_LINER
+            color = [0 0.4470 0.7410];
+            legend_label = "DL: ";
+    end
+    switch MineralLinerPermeability(ii)
+        case mineralLinerPermeability.LOW_PERMEABILITY_CLAY
+            marker = "o";
+            legend_label = legend_label + "LP Clay";
+        case  mineralLinerPermeability.SEMI_LOW_PERMEABILITY_CLAY
+            marker = "square";
+            legend_label = legend_label + "Semi-LP Clay";
+        case  mineralLinerPermeability.GCL
+            marker = "diamond";
+            legend_label = legend_label + "GCL";
+    end
+
+    if CQA(ii)
+        scatter(LeakageRateDay(ii), Profit(ii), 200, color, "filled", marker, LineWidth=2);
+        legend_label = legend_label + " - CQA";
+    else
+        scatter(LeakageRateDay(ii), Profit(ii), 200, color, marker, LineWidth=2);
+    end
+    legend_labels(ii) = legend_label;
+    hold on;
+end
+title("Basal Liner Leakage vs. Profit");
+xlabel("Leakage Rate (m^3/d)");
+ylabel("Total Profit (£)");
+legend(legend_labels, 'Location','westoutside');
+
+ax = gca;
+ax.XAxisLocation = "origin";
+ax.YAxisLocation = "origin";
+ax.YAxis.Exponent = 0;
+ax.XAxis.Exponent = 0;
+ax.FontSize = 20;
+
+hold off;
 
