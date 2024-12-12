@@ -13,13 +13,14 @@ LANDFILL_LIFETIME_YRS = 60;
 SECONDS_PER_DAY = 60*60*24;
 SECONDS_PER_YEAR = 365*SECONDS_PER_DAY;
 HEAD = 1;
+indexes = length(LinerKind);
 
 %% Part 3: Calculate leakage
 
-% calculate k (for LD compliance)
+% calculate i
 thickness = 0;
 hydraulic_gradient = 0;
-Permeability = zeros(indexes,1);
+HydraulicGradient = zeros(indexes,1)
 for ii = 1:indexes
     hydraulic_gradient = 0;
     if LinerKind(ii) == linerKind.DOUBLE_LINER
@@ -30,7 +31,7 @@ for ii = 1:indexes
     end
 
     hydraulic_gradient = (thickness + HEAD)/thickness;
-    Permeability(ii) = LeakageRate(ii)/(hydraulic_gradient*AREA_M2);
+    HydraulicGradient(ii) = hydraulic_gradient;
 end
 
 % calculate q
@@ -39,7 +40,6 @@ leakage_rate = 0;
 hole_count = 0;
 contact_factor = 0;
 hole_area = 0;
-indexes = length(LinerKind);
 LeakageRate = zeros(indexes,1);
 for ii = 1:indexes
     leakage_rate = 0;
@@ -60,9 +60,8 @@ for ii = 1:indexes
 
     switch LinerKind(ii)
         case linerKind.MINERAL_LINER
-            hydraulic_gradient = (thickness+HEAD)/thickness;
             % Darcy's Law
-            leakage_rate = MineralLinerPermeability(ii)*hydraulic_gradient*AREA_M2;
+            leakage_rate = MineralLinerPermeability(ii)*HydraulicGradient(ii)*AREA_M2;
         case linerKind.SINGLE_COMPOSITE
             % leakage through a single composite liner (Bonaparte et al., 1989)
             leakage_rate = hole_count*contact_factor*HEAD^0.9*hole_area^0.1*MineralLinerPermeability(ii)^0.74;
@@ -74,6 +73,9 @@ for ii = 1:indexes
     end
     LeakageRate(ii,1) = leakage_rate;
 end
+
+% calculate k (for LD compliance)
+Permeability = LeakageRate./(HydraulicGradient.*AREA_M2);
 
 LeakageRateDay = LeakageRate.*SECONDS_PER_DAY;
 LifetimeLeakage = LeakageRate.*SECONDS_PER_YEAR*LANDFILL_LIFETIME_YRS;
@@ -168,6 +170,8 @@ Income = AvailableVolume*7.5;
 Profit = Income-TotalCost;
 
 profit = table(LinerKind, CQA, MineralLinerPermeability, TotalCost, AvailableVolume, Income, Profit)
+
+permeability_table = table(LinerKind, CQA, MineralLinerPermeability, Permeability)
 
 % TODO: add seperator geotextile in for intermediary drainage layer in basal system?
 
