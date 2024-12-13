@@ -134,7 +134,7 @@ capping_cost = capping_cost*AREA_M2;
 CappingCost = ones(indexes, 1);
 CappingCost = CappingCost.*capping_cost;
 
-cover_soil_cost = 49833;
+cover_soil_cost = 51000;
 CoverSoilCost = ones(indexes, 1);
 CoverSoilCost = CoverSoilCost.*cover_soil_cost;
 
