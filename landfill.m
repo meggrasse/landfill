@@ -101,10 +101,10 @@ for ii = 1:indexes
 
     switch LinerKind(ii)
         case linerKind.SINGLE_COMPOSITE
-            current_material_cost = current_material_cost + costs.PROTECTION_GEOTEXTILE + costs.LLDPE;
+            current_material_cost = current_material_cost + costs.LLDPE;
         case linerKind.DOUBLE_LINER_COMPOSITE
             % tyre layer height of 10cm
-            current_material_cost = current_material_cost + costs.LLDPE + costs.TYRES*0.1 + costs.PROTECTION_GEOTEXTILE + costs.LLDPE;
+            current_material_cost = current_material_cost + costs.LLDPE + costs.TYRES*0.1 + costs.LLDPE;
         case linerKind.GEOMEMBRANE
             current_material_cost = current_material_cost + costs.LLDPE;
         case linerKind.DOUBLE_GEOMEMBRANE
@@ -155,7 +155,7 @@ for ii = 1:indexes
         % liner thickness is 0.6
         available_volume = 243552;
     else
-        available_volume = 244544;
+        available_volume = 244375;
     end
     AvailableVolume(ii) = available_volume;
 end
